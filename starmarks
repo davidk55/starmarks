@@ -1,0 +1,136 @@
+#!/bin/sh
+
+# ============ @author davidk55 ============
+# inspired by: https://github.com/jocelynmallon/zshmarks
+
+# ============ UTIL ============
+check_if_pos_integer() {
+  case "$1" in
+    *[!0123456789]*) return 1 ;;
+    '') return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# ============ HELP MESSAGE ============
+HELP="
+-a      add 🌟
+-d      delete 🌟
+-j      jump to 🌟
+"
+
+# ============ SETUP ============
+# Create env variables if not exist
+if [ -z "$STARMARKS_PATH" ] && [ -z "$STARMARKS_FILE" ]; then
+    export STARMARKS_PATH="$HOME/.local/share/starmarks/"
+    export STARMARKS_FILE="saved_starmarks"
+fi
+
+# Create directories if they do not exist
+if [ ! -d "$STARMARKS_PATH"  ]; then
+	mkdir -p "$STARMARKS_PATH"
+fi
+
+# Create file if it do not exist
+if [ ! -f "$STARMARKS_FILE"  ]; then
+	touch "$STARMARKS_PATH$STARMARKS_FILE"
+fi
+
+# ============ MAIN FUNCTIONS ============
+add() {
+  path_exist=false
+
+  if [ "$PATH_TO_ADD" = "c" ]; then
+    pwd >> "$STARMARKS_PATH$STARMARKS_FILE"
+    echo a new 🌟 was added: current
+    return
+  fi
+
+  # compare each line with path to add
+  while IFS='' read -r LINE || [ -n "${LINE}" ]; do
+    if [ "$LINE" = "$PATH_TO_ADD" ]; then
+      path_exist=true
+    fi
+  done < "$STARMARKS_PATH$STARMARKS_FILE"
+
+  if [ "$path_exist" = false ]; then
+    echo "$PATH_TO_ADD" >> "$STARMARKS_PATH$STARMARKS_FILE"
+    echo a new 🌟 was added: "$PATH_TO_ADD"
+  else
+    echo this 🌟 already exist: "$PATH_TO_ADD"
+  fi
+}
+
+jump() {
+  clear
+  cur_id=1
+
+  echo type 🌟 id to jump to 
+  echo
+  echo " ID        PATH"
+  echo "--------------------------------------"
+  while IFS='' read -r LINE || [ -n "${LINE}" ]; do
+    echo " $cur_id ${LINE}"
+    cur_id=$((cur_id+1))
+  done < "$STARMARKS_PATH$STARMARKS_FILE"
+  echo
+
+  read -r
+  cur_id=1
+  clear
+  if (check_if_pos_integer "$REPLY") then
+    while IFS='' read -r LINE || [ -n "${LINE}" ]; do
+      if [ "$cur_id" = "$REPLY" ]; then
+        cd "${LINE}" || exit
+      fi
+      cur_id=$((cur_id+1))
+    done < "$STARMARKS_PATH$STARMARKS_FILE"
+  fi
+}
+
+delete() {
+  clear
+  cur_id=1
+
+  echo type 🌟 id to delete
+  echo
+  echo " ID        PATH"
+  echo "--------------------------------------"
+  while IFS='' read -r LINE || [ -n "${LINE}" ]; do
+    echo " $cur_id ${LINE}"
+    cur_id=$((cur_id+1))
+  done < "$STARMARKS_PATH$STARMARKS_FILE"
+  echo
+
+  read -r
+  clear
+  if (check_if_pos_integer "$REPLY") then
+    sed -i "$REPLY d" "$STARMARKS_PATH$STARMARKS_FILE"
+  fi
+}
+
+# ============ HANDLE INPUT ============
+OPTIND=1
+while getopts la:djh arg; do
+  case "${arg}" in
+    a)
+      PATH_TO_ADD=${OPTARG}
+      add
+      ;;
+    d)
+      delete
+      ;;
+    j)
+      jump
+      ;;
+    h)
+      echo "$HELP"
+      ;;
+    *)
+      ;;
+  esac
+done
+
+if [ $OPTIND -eq 1 ]; then
+  echo "$HELP"
+fi
